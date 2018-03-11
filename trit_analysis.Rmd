@@ -1,0 +1,72 @@
+---
+title: "Triteleia_analysis"
+author: "Chris Adlam"
+date: "3/11/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# loading packages and data
+```{r}
+library(tidyverse)
+library(emmeans)
+library(lme4)
+library(lmerTest)
+library(pbkrtest)
+library(car)
+library(ggplot2)
+library(cowplot)
+
+trit_data <- read.csv("data/triteleia_data_clumps_2018.csv")
+trit_data$block <- as.factor(trit_data$block)
+trit_data$plot <- as.factor((trit_data$plot))
+trit_data$plot_id <- as.factor((trit_data$plot_id))
+
+#response <- trit_data$clumps
+response <- trit_data$rooted_cover
+
+```
+
+# Design table
+
+| Structure | Variable                      | Type        | # levels | Experimental Unit   |
+|-----------|-------------------------------|-------------|----------|---------------------|
+| Treatment | trt                           | Categorical | 4        | trt:block           |
+| Design    | block                         | Categorical | 5        |                     |
+|           | trt:block                     | Categorical | 20       |                     |
+|           | plot                          | Categorical | 90       |                     |
+| Response  | rooted_cover                  | Numeric     | 90       |                     |
+
+# Model averaging up to block
+```{r}
+avg_block_data = aggregate(response~trt+block,trit_data,mean)
+
+avg_mod <- lm(response~trt + block, avg_block_data)
+anova(avg_mod)
+
+all_contrasts <- emmeans(avg_mod,pairwise~trt)$contrasts
+summary(all_contrasts,infer=T)
+
+estimates = emmeans(avg_mod,~trt) 
+cld(estimates)
+```
+
+# Model with block as random
+```{r}
+trit_mod <- lmer(response~trt + (1|block) + (1|block:trt), trit_data)
+anova(trit_mod)
+
+all_contrasts <- emmeans(trit_mod,pairwise~trt)$contrasts
+summary(all_contrasts,infer=T)
+
+estimates = emmeans(trit_mod,~trt) 
+cld(estimates)
+```
+
+# Interpretation
+looking at the rooted cover, we that the digging treatment has much more, as expected (p<0.0001 for all pairwise comparisons at alpha = 0.95).
+
+When looking at the number of clumps, the dig treatment is also much lower than all the others. What was not expected though is that the ctrl is also lower than the spray and burn treaments (not significant), and is not significantly different from the dig treatment.
